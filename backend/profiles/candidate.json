@@ -1,0 +1,56 @@
+{
+  "personal": {
+    "firstName": "Jane",
+    "lastName": "Doe",
+    "email": "jane.doe@example.com",
+    "phone": "+1-555-0100",
+    "location": "San Francisco, CA",
+    "linkedinUrl": "https://linkedin.com/in/janedoe",
+    "githubUrl": "https://github.com/janedoe",
+    "portfolioUrl": "https://janedoe.dev",
+    "pronouns": "she/her"
+  },
+  "target": {
+    "roles": ["Software Engineer", "Full Stack Developer", "Backend Engineer"],
+    "salaryMin": 30000,
+    "salaryMax": 120000,
+    "currency": "USD",
+    "remote": true,
+    "willingToRelocate": true,
+    "startAvailability": "2 weeks",
+    "employmentTypes": ["full-time"]
+  },
+  "experience": {
+    "totalYears": 5,
+    "currentTitle": "Software Engineer II",
+    "currentCompany": "Acme Corp",
+    "summary": "Full stack engineer with 5 years of experience building scalable web applications using Node.js, React, and AWS. Passionate about developer tooling and AI-augmented workflows."
+  },
+  "education": [
+    {
+      "institution": "University of California, Berkeley",
+      "degree": "Bachelor of Science",
+      "field": "Computer Science",
+      "graduationYear": 2020,
+      "gpa": "3.8"
+    }
+  ],
+  "skills": {
+    "languages": ["JavaScript", "TypeScript", "Python", "SQL"],
+    "frameworks": ["Node.js", "React", "Next.js", "Express"],
+    "cloud": ["AWS", "GCP"],
+    "tools": ["Docker", "Kubernetes", "PostgreSQL", "Redis", "Git"]
+  },
+  "workAuthorization": {
+    "country": "US",
+    "status": "US Citizen",
+    "requiresSponsorship": false
+  },
+  "demographics": {
+    "veteran": false,
+    "disability": false,
+    "gender": "Female",
+    "ethnicity": "Hispanic or Latino"
+  },
+  "coverLetterTemplate": "I am excited to apply for the {role} position at {company}. With {years} years of experience in {skills}, I am confident I can contribute meaningfully to your team. {custom_paragraph} Thank you for your consideration."
+}

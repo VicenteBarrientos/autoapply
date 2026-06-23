@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AutoApply</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; width: 320px; color: #1a1a1a; }
+    header { background: #0a66c2; color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 8px; }
+    header h1 { font-size: 16px; font-weight: 700; }
+    .badge { background: #fff; color: #0a66c2; font-size: 10px; font-weight: 700; border-radius: 8px; padding: 1px 6px; }
+    main { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+    .status { font-size: 12px; color: #555; }
+    .status span { font-weight: 600; }
+    textarea { width: 100%; height: 140px; font-size: 11px; font-family: monospace; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; resize: vertical; }
+    .btn { padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .btn-primary { background: #0a66c2; color: #fff; width: 100%; }
+    .btn-primary:hover { background: #004182; }
+    .btn-sm { background: #f3f4f6; color: #374151; font-size: 12px; }
+    .btn-sm:hover { background: #e5e7eb; }
+    .btn-resumex { background: #eef2ff; color: #4338ca; font-size: 12px; border: 1px solid #c7d2fe; }
+    .btn-resumex:hover { background: #e0e7ff; }
+    .row { display: flex; gap: 8px; }
+    .hint { font-size: 11px; color: #888; }
+    #msg { font-size: 12px; min-height: 16px; }
+    .ok { color: #16a34a; }
+    .err { color: #dc2626; }
+    .divider { border: none; border-top: 1px solid #e5e7eb; }
+    .section-label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+    a.open-dashboard { display: block; text-align: center; font-size: 12px; color: #4338ca; text-decoration: none; padding: 6px; border-radius: 6px; border: 1px solid #c7d2fe; background: #eef2ff; }
+    a.open-dashboard:hover { background: #e0e7ff; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AutoApply</h1>
+    <span class="badge">v0.2</span>
+  </header>
+  <main>
+    <p class="status">Platform: <span id="platform">—</span></p>
+
+    <hr class="divider" />
+    <p class="section-label">ResumeX Sync</p>
+
+    <a class="open-dashboard" href="https://resumex.vercel.app/autoapply" target="_blank">
+      📋 Open Dashboard ↗
+    </a>
+
+    <div class="row">
+      <button class="btn btn-resumex" id="pull-btn" style="flex:1">
+        ⬇ Pull profile from ResumeX
+      </button>
+      <button class="btn btn-resumex" id="push-btn" style="flex:1">
+        ⬆ Push profile to ResumeX
+      </button>
+    </div>
+
+    <hr class="divider" />
+    <p class="section-label">Local Profile</p>
+
+    <textarea id="profile-json" placeholder='{"personal":{"firstName":"..."}}'></textarea>
+    <p class="hint">Edit and save, or sync with ResumeX above.</p>
+
+    <div class="row">
+      <button class="btn btn-sm" id="load-btn">Load saved</button>
+      <button class="btn btn-primary" id="save-btn">Save profile</button>
+    </div>
+
+    <p id="msg"></p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

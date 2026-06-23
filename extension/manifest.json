@@ -1,0 +1,70 @@
+{
+  "manifest_version": 3,
+  "name": "AutoApply",
+  "version": "0.2.0",
+  "description": "AI-powered job auto-applier — syncs with ResumeX",
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "https://indeed.com/*",
+    "https://*.greenhouse.io/*",
+    "https://jobs.lever.co/*",
+    "https://*.myworkdayjobs.com/*",
+    "https://www.jobgether.com/*",
+    "https://resumex.vercel.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["content/resumex-bridge.js"],
+      "matches": ["https://resumex.vercel.app/*"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/jobs/*"],
+      "js": ["content/common.js", "content/linkedin.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.greenhouse.io/*"],
+      "js": ["content/common.js", "content/greenhouse.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://jobs.lever.co/*"],
+      "js": ["content/common.js", "content/lever.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://indeed.com/*", "https://www.indeed.com/*"],
+      "js": ["content/common.js", "content/indeed.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.myworkdayjobs.com/*"],
+      "js": ["content/common.js", "content/workday.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.jobgether.com/*"],
+      "js": ["content/common.js", "content/jobgether.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://resumex.vercel.app/*"],
+      "js": ["content/resumex.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
