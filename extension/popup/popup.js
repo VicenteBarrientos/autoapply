@@ -2,6 +2,11 @@ const profileEl = document.getElementById("profile-json");
 const msgEl = document.getElementById("msg");
 const platformEl = document.getElementById("platform");
 
+document.querySelector("a.open-dashboard").addEventListener("click", (e) => {
+  e.preventDefault();
+  chrome.tabs.create({ url: "https://resume-x-yixz.vercel.app/autoapply" });
+});
+
 function showMsg(text, isErr = false) {
   msgEl.textContent = text;
   msgEl.className = isErr ? "err" : "ok";
@@ -17,7 +22,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
   else if (url.includes("lever.co")) platformEl.textContent = "Lever";
   else if (url.includes("myworkdayjobs.com")) platformEl.textContent = "Workday";
   else if (url.includes("jobgether.com")) platformEl.textContent = "Jobgether";
-  else if (url.includes("resumex.vercel.app")) platformEl.textContent = "ResumeX ✅";
+  else if (url.includes("resume-x-yixz.vercel.app")) platformEl.textContent = "ResumeX ✅";
   else platformEl.textContent = "Unknown";
 });
 
@@ -58,7 +63,7 @@ document.getElementById("pull-btn").addEventListener("click", () => {
       profileEl.value = JSON.stringify(res.profile, null, 2);
       showMsg("Profile pulled from ResumeX ✅");
     } else {
-      showMsg(res?.error || "Open resumex.vercel.app/autoapply first.", true);
+      showMsg(res?.error || "Open resume-x-yixz.vercel.app/autoapply first.", true);
     }
   });
 });
@@ -73,9 +78,9 @@ document.getElementById("push-btn").addEventListener("click", () => {
     return;
   }
 
-  chrome.tabs.query({ url: "https://resumex.vercel.app/*" }, (tabs) => {
+  chrome.tabs.query({ url: "https://resume-x-yixz.vercel.app/*" }, (tabs) => {
     if (tabs.length === 0) {
-      showMsg("Open resumex.vercel.app first.", true);
+      showMsg("Open resume-x-yixz.vercel.app first.", true);
       return;
     }
     chrome.tabs.sendMessage(tabs[0].id, { type: "PUSH_PROFILE_TO_RESUMEX", payload: parsed }, () => {

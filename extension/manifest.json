@@ -11,7 +11,7 @@
     "https://jobs.lever.co/*",
     "https://*.myworkdayjobs.com/*",
     "https://www.jobgether.com/*",
-    "https://resumex.vercel.app/*"
+    "https://resume-x-yixz.vercel.app/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -27,7 +27,7 @@
   "web_accessible_resources": [
     {
       "resources": ["content/resumex-bridge.js"],
-      "matches": ["https://resumex.vercel.app/*"]
+      "matches": ["https://resume-x-yixz.vercel.app/*"]
     }
   ],
   "content_scripts": [
@@ -62,7 +62,7 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://resumex.vercel.app/*"],
+      "matches": ["https://resume-x-yixz.vercel.app/*"],
       "js": ["content/resumex.js"],
       "run_at": "document_idle"
     }

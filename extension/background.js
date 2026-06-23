@@ -1,5 +1,5 @@
 const BACKEND_URL = "https://backend-inky-kappa-12.vercel.app";
-const RESUMEX_URL = "https://resumex.vercel.app";
+const RESUMEX_URL = "https://resume-x-yixz.vercel.app";
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "FILL_FORM") {
