@@ -1,4 +1,4 @@
-const BACKEND_URL = "http://localhost:3000";
+const BACKEND_URL = "https://backend-inky-kappa-12.vercel.app";
 const RESUMEX_URL = "https://resumex.vercel.app";
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
