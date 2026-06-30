@@ -16,7 +16,22 @@ Rules:
 - coverLetterTemplate: brief template with {role}, {company}, {years}, {skills} placeholders if enough context; otherwise empty string.
 - workAuthorization: only fill if visa/sponsorship/citizenship is mentioned.
 - target.remote and willingToRelocate: true only if resume suggests openness; default false if unknown.
-- target.salaryMin/Max: only if salary expectations appear; otherwise 0.`;
+- target.salaryMin/Max: only if salary expectations appear; otherwise 0.
+- personal.location must be a plain string (e.g. "Berlin, Germany"), never an object.`;
+
+function toText(value) {
+  if (value == null) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number") return String(value);
+  if (typeof value === "object") {
+    const parts = [value.city, value.region, value.state, value.country, value.name]
+      .filter(Boolean)
+      .map(String);
+    if (parts.length) return parts.join(", ");
+    return "";
+  }
+  return String(value);
+}
 
 function normalizeProfile(raw) {
   const personal = raw.personal || {};
@@ -26,13 +41,13 @@ function normalizeProfile(raw) {
 
   return {
     personal: {
-      firstName: String(personal.firstName ?? ""),
-      lastName: String(personal.lastName ?? ""),
-      email: String(personal.email ?? ""),
-      phone: String(personal.phone ?? ""),
-      location: String(personal.location ?? ""),
-      linkedinUrl: String(personal.linkedinUrl ?? ""),
-      githubUrl: String(personal.githubUrl ?? ""),
+      firstName: toText(personal.firstName),
+      lastName: toText(personal.lastName),
+      email: toText(personal.email),
+      phone: toText(personal.phone),
+      location: toText(personal.location),
+      linkedinUrl: toText(personal.linkedinUrl),
+      githubUrl: toText(personal.githubUrl),
     },
     target: {
       roles: Array.isArray(target.roles) ? target.roles.map(String) : [],
