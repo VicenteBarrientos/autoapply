@@ -12,7 +12,7 @@ const STORAGE = {
   BACKEND_SECRET: "resumex_backend_secret",
 };
 
-const DEFAULT_BACKEND = "https://backend-inky-kappa-12.vercel.app";
+const DEFAULT_BACKEND = "https://autoapply-rwhg.vercel.app";
 
 const jobsEl = document.getElementById("jobs");
 const emptyEl = document.getElementById("empty");

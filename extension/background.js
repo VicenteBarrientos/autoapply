@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_URL = "https://backend-inky-kappa-12.vercel.app";
+const DEFAULT_BACKEND_URL = "https://autoapply-rwhg.vercel.app";
 const RESUMEX_URL = "https://resume-x-yixz.vercel.app";
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

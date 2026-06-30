@@ -7,7 +7,7 @@ const secretEl = document.getElementById("backend-secret");
 const appCountEl = document.getElementById("app-count");
 const jobQueueEl = document.getElementById("job-queue-count");
 
-const DEFAULT_BACKEND_URL = "https://backend-inky-kappa-12.vercel.app";
+const DEFAULT_BACKEND_URL = "https://autoapply-rwhg.vercel.app";
 const RESUMEX_URL = "https://resume-x-yixz.vercel.app";
 
 function isPlaceholderProfile(profile) {
