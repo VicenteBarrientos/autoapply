@@ -9,7 +9,7 @@
     header { background: #0a66c2; color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 8px; }
     header h1 { font-size: 16px; font-weight: 700; }
     .badge { background: #fff; color: #0a66c2; font-size: 10px; font-weight: 700; border-radius: 8px; padding: 1px 6px; }
-    main { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+    main { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; max-height: 560px; overflow-y: auto; }
     .status { font-size: 12px; color: #555; }
     .status span { font-weight: 600; }
     textarea { width: 100%; height: 140px; font-size: 11px; font-family: monospace; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; resize: vertical; }
@@ -29,15 +29,19 @@
     .section-label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
     a.open-dashboard { display: block; text-align: center; font-size: 12px; color: #4338ca; text-decoration: none; padding: 6px; border-radius: 6px; border: 1px solid #c7d2fe; background: #eef2ff; }
     a.open-dashboard:hover { background: #e0e7ff; }
+    input[type=password], input[type=url] { width: 100%; font-size: 12px; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 8px; font-family: monospace; }
+    code { font-family: monospace; background: #f3f4f6; border-radius: 3px; padding: 1px 4px; font-size: 11px; }
   </style>
 </head>
 <body>
   <header>
     <h1>AutoApply</h1>
-    <span class="badge">v0.2</span>
+    <span class="badge">v0.4</span>
   </header>
   <main>
     <p class="status">Platform: <span id="platform">—</span></p>
+    <p class="status">Profile: <span id="profile-status" style="color:#888">—</span></p>
+    <p class="status">Applied: <span id="app-count" style="color:#888">—</span></p>
 
     <hr class="divider" />
     <p class="section-label">ResumeX Sync</p>
@@ -56,14 +60,32 @@
     </div>
 
     <hr class="divider" />
+    <p class="section-label">Job Search</p>
+    <p class="status">In queue: <span id="job-queue-count" style="color:#888">—</span></p>
+    <div class="row">
+      <button class="btn btn-sm" id="search-jobs-btn" style="flex:1">Search jobs</button>
+      <button class="btn btn-sm" id="open-queue-btn" style="flex:1">Open queue ↗</button>
+    </div>
+    <p class="hint">Uses your saved profile. Results merge into ResumeX when the dashboard tab is open.</p>
+
+    <hr class="divider" />
+    <p class="section-label">Backend</p>
+    <input type="url" id="backend-url" placeholder="https://backend-inky-kappa-12.vercel.app" autocomplete="off" />
+    <input type="password" id="backend-secret" placeholder="Paste AUTOAPPLY_SECRET here" autocomplete="off" />
+    <div class="row">
+      <button class="btn btn-sm" id="test-backend-btn" style="flex:1">Test connection</button>
+      <button class="btn btn-sm" id="save-backend-btn" style="flex:1">Save settings</button>
+    </div>
+    <p class="hint">URL defaults to production. Use <code>http://localhost:3000</code> for local dev. Secret must match <code>AUTOAPPLY_SECRET</code> in your backend <code>.env</code>.</p>
+
+    <hr class="divider" />
     <p class="section-label">Local Profile</p>
 
     <textarea id="profile-json" placeholder='{"personal":{"firstName":"..."}}'></textarea>
     <p class="hint">Edit and save, or sync with ResumeX above.</p>
 
     <div class="row">
-      <button class="btn btn-sm" id="load-btn">Load saved</button>
-      <button class="btn btn-primary" id="save-btn">Save profile</button>
+      <button class="btn btn-primary" id="save-btn" style="flex:1">Save profile</button>
     </div>
 
     <p id="msg"></p>

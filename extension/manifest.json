@@ -1,17 +1,21 @@
 {
   "manifest_version": 3,
   "name": "AutoApply",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "description": "AI-powered job auto-applier — syncs with ResumeX",
   "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "host_permissions": [
     "https://www.linkedin.com/*",
     "https://indeed.com/*",
+    "https://www.indeed.com/*",
     "https://*.greenhouse.io/*",
     "https://jobs.lever.co/*",
     "https://*.myworkdayjobs.com/*",
     "https://www.jobgether.com/*",
-    "https://resume-x-yixz.vercel.app/*"
+    "https://resume-x-yixz.vercel.app/*",
+    "https://backend-inky-kappa-12.vercel.app/*",
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*"
   ],
   "background": {
     "service_worker": "background.js"

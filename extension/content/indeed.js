@@ -1,19 +1,20 @@
-// Indeed content script
+// Indeed content script — multi-step apply with application logging
 
 (async () => {
   const log = (...args) => console.log("[AutoApply Indeed]", ...args);
 
-  let modalObserved = false;
+  let containerObserved = false;
+  let allAnswers = {};
 
-  const MODAL_SELECTORS = [
+  const CONTAINER_SELECTORS = [
     "[data-testid='ia-container']",
     ".ia-BasePage",
-    "#indeedApplyButton",
+    "#ia-container",
     ".jobsearch-IndeedApplyButton-contentWrapper",
   ];
 
-  const findModal = () => {
-    for (const sel of MODAL_SELECTORS) {
+  const findContainer = () => {
+    for (const sel of CONTAINER_SELECTORS) {
       const el = document.querySelector(sel);
       if (el) return el;
     }
@@ -21,13 +22,14 @@
   };
 
   const observer = new MutationObserver(() => {
-    const modal = findModal();
-    if (modal && !modalObserved) {
-      modalObserved = true;
-      log("Modal detected");
-      injectButton(modal);
+    const container = findContainer();
+    if (container && !containerObserved) {
+      containerObserved = true;
+      allAnswers = {};
+      log("Container detected");
+      injectButton(container);
     }
-    if (!modal) modalObserved = false;
+    if (!container) containerObserved = false;
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
@@ -41,23 +43,16 @@
     btn.style.cssText =
       "position:fixed;top:16px;right:16px;z-index:99999;background:#2164f3;color:#fff;" +
       "border:none;border-radius:6px;padding:8px 18px;font-size:14px;cursor:pointer;font-weight:600;";
-    btn.addEventListener("click", () => runAutoFill(btn));
+    btn.addEventListener("click", () => runAutoFill(container, btn));
     document.body.appendChild(btn);
+    AutoApply.notifyFileUploads(container, btn);
     log("Button injected");
   }
 
-  async function runAutoFill(btn) {
+  async function runAutoFill(container, btn) {
     btn.disabled = true;
-    btn.textContent = "⏳ Filling…";
     try {
-      const jobDescription = scrapeJobDescription();
-      const fields = AutoApply.scrapeFormFields();
-      log("Fields scraped:", fields);
-
-      const answers = await AutoApply.askBackend(fields, jobDescription, "indeed");
-      log("Answers:", answers);
-      await applyAnswers(answers);
-      btn.textContent = "✅ Filled!";
+      await fillAndAdvance(container, btn);
     } catch (err) {
       log("Error:", err);
       btn.textContent = "❌ Error";
@@ -69,45 +64,103 @@
     }
   }
 
-  async function applyAnswers(answers) {
-    const inputs = document.querySelectorAll(
-      "input:not([type=hidden]):not([type=submit]):not([type=button]), textarea, select"
-    );
-    for (const el of inputs) {
-      if (el.offsetParent === null) continue;
-      const label = AutoApply.extractLabel(el);
-      const key = findMatchingKey(answers, el, label);
-      if (!key) continue;
-      const value = answers[key];
-      await AutoApply.sleep(100);
+  async function fillAndAdvance(container, btn) {
+    let step = 1;
 
-      if (el.tagName === "SELECT") {
-        AutoApply.selectOption(el, value);
-      } else if (el.tagName === "TEXTAREA") {
-        AutoApply.fillTextarea(el, value);
-      } else if (el.type === "radio" || el.type === "checkbox") {
-        const wantChecked = value === true || value === "yes" || value === "true";
-        if (wantChecked !== el.checked) el.click();
+    while (true) {
+      btn.textContent = `⏳ Step ${step}…`;
+
+      const jobDescription = scrapeJobDescription();
+      // Scope field scraping to the apply container
+      const fields = AutoApply.scrapeFormFields(container);
+      const unfilledFields = AutoApply.unfilledFields(fields);
+      log(`Step ${step} — fields: ${fields.length} total, ${unfilledFields.length} unfilled`);
+
+      if (unfilledFields.length > 0) {
+        const answers = await AutoApply.askBackend(unfilledFields, jobDescription, "indeed");
+        log(`Step ${step} — answers:`, answers);
+        Object.assign(allAnswers, answers);
+        await AutoApply.applyAnswers(answers, container, 100);
+        await AutoApply.sleep(400);
+      }
+
+      const submitBtn = AutoApply.findButton(container, [
+        "submit your application",
+        "submit application",
+        "apply now",
+        "enviar solicitud",
+      ]);
+      const nextBtn = AutoApply.findButton(container, ["continue", "next", "save and continue", "siguiente"]);
+
+      if (submitBtn) {
+        const emptyRequired = AutoApply.emptyRequiredFields(container);
+
+        if (emptyRequired.length > 0) {
+          log("Stopping: required fields empty:", emptyRequired.map((e) => AutoApply.extractLabel(e, container)));
+          btn.textContent = `⚠️ ${emptyRequired.length} required field(s) empty — review`;
+          btn.disabled = false;
+          break;
+        }
+
+        btn.textContent = "📨 Submitting…";
+        log("Clicking Submit");
+        submitBtn.click();
+        await AutoApply.sleep(2000);
+        btn.textContent = "✅ Applied!";
+        const logResult = await AutoApply.logApplication({
+          platform: "indeed",
+          company: scrapeCompanyName(),
+          role: scrapeJobTitle(),
+          jobDescription,
+          answers: allAnswers,
+        });
+        if (logResult.ok) log("Application logged ✅");
+        else log("Log failed:", logResult.error);
+        break;
+      } else if (nextBtn) {
+        log("Clicking Next");
+        nextBtn.click();
+        await AutoApply.sleep(1500);
+        step++;
       } else {
-        AutoApply.fillInput(el, value);
+        log("No navigation button — stopping");
+        btn.textContent = "✅ Filled!";
+        break;
+      }
+
+      if (step > 15) {
+        log("Too many steps — stopping");
+        btn.textContent = "⚠️ Check form";
+        break;
       }
     }
   }
 
-  function findMatchingKey(answers, el, label) {
-    for (const key of Object.keys(answers)) {
-      if (el.id && el.id.toLowerCase().includes(key.toLowerCase())) return key;
-      if (el.name && el.name.toLowerCase().includes(key.toLowerCase())) return key;
-      if (label && label.toLowerCase().includes(key.toLowerCase())) return key;
-      if (key.toLowerCase().includes(label?.toLowerCase()) && label?.length > 3) return key;
-    }
-    return null;
+  function scrapeCompanyName() {
+    return (
+      document.querySelector("[data-testid='inlineHeader-companyName'] a")?.textContent?.trim() ||
+      document.querySelector(".jobsearch-CompanyInfoContainer a")?.textContent?.trim() ||
+      document.querySelector("[class*='company']")?.textContent?.trim() ||
+      "Unknown Company"
+    );
+  }
+
+  function scrapeJobTitle() {
+    return (
+      document.querySelector("[data-testid='jobsearch-JobInfoHeader-title']")?.textContent?.trim() ||
+      document.querySelector(".jobsearch-JobInfoHeader-title")?.textContent?.trim() ||
+      document.querySelector("h1")?.textContent?.trim() ||
+      "Unknown Role"
+    );
   }
 
   function scrapeJobDescription() {
-    const el = document.querySelector(
-      "#jobDescriptionText, .jobsearch-jobDescriptionText, [class*='description']"
-    );
+    const el =
+      document.querySelector("#jobDescriptionText") ||
+      document.querySelector(".jobsearch-jobDescriptionText") ||
+      document.querySelector("[data-testid='jobDescriptionText']") ||
+      document.querySelector("[class*='jobDescription']") ||
+      document.querySelector("article");
     return el ? el.innerText.slice(0, 3000) : "";
   }
-})();
+})().catch((err) => console.error("[AutoApply Indeed] Fatal:", err));

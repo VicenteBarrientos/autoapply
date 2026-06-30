@@ -1,4 +1,5 @@
 node_modules/
 backend/.env
+backend/profiles/candidate.json
 *.log
 .DS_Store

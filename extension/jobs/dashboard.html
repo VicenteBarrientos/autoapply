@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AutoApply — Job Queue</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f8fafc; color: #1e293b; min-height: 100vh; }
+    header { background: #0a66c2; color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    header h1 { font-size: 18px; }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    select, input { font-size: 13px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; }
+    .btn { border: none; border-radius: 6px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: #fff; color: #0a66c2; }
+    .btn-primary:hover { background: #e0f2fe; }
+    .btn-sm { background: #f1f5f9; color: #334155; padding: 5px 10px; font-size: 12px; }
+    .btn-sm:hover { background: #e2e8f0; }
+    .btn-apply { background: #0a66c2; color: #fff; }
+    .btn-apply:hover { background: #004182; }
+    main { max-width: 900px; margin: 0 auto; padding: 20px 16px 40px; }
+    #status { font-size: 13px; min-height: 20px; margin-bottom: 12px; color: #64748b; }
+    #status.err { color: #dc2626; }
+    #status.ok { color: #16a34a; }
+    .stats { display: flex; gap: 16px; margin-bottom: 16px; font-size: 13px; color: #64748b; }
+    .stats strong { color: #1e293b; }
+    .job-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+    .job-card.applied { opacity: 0.65; }
+    .job-card.dismissed { display: none; }
+    .job-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .job-title { font-size: 16px; font-weight: 700; }
+    .job-meta { font-size: 13px; color: #64748b; margin-top: 4px; }
+    .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+    .badge-platform { background: #eef2ff; color: #4338ca; }
+    .badge-remote { background: #ecfdf5; color: #059669; }
+    .badge-auto { background: #dbeafe; color: #1d4ed8; }
+    .badge-score { background: #fef3c7; color: #92400e; }
+    .badge-score.high { background: #dcfce7; color: #166534; }
+    .badge-applied { background: #f1f5f9; color: #64748b; }
+    .job-summary { font-size: 13px; color: #475569; margin-top: 10px; line-height: 1.5; }
+    .job-gaps { font-size: 12px; color: #b45309; margin-top: 6px; }
+    .job-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .empty { text-align: center; padding: 60px 20px; color: #94a3b8; }
+    .empty p { margin-top: 8px; font-size: 14px; }
+    .watchlist { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; }
+    .watchlist label { font-weight: 600; display: block; margin-bottom: 6px; }
+    .watchlist input { width: 100%; margin-top: 4px; }
+    .watchlist .hint { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>⚡ Job Queue</h1>
+    <div class="toolbar">
+      <select id="filter">
+        <option value="open">Open jobs</option>
+        <option value="all">All</option>
+        <option value="saved">Saved</option>
+        <option value="applied">Applied</option>
+        <option value="auto">AutoApply ready</option>
+      </select>
+      <select id="sort">
+        <option value="date">Newest first</option>
+        <option value="score">Best match</option>
+      </select>
+      <button class="btn btn-primary" id="search-btn">Search jobs</button>
+      <button class="btn btn-primary" id="batch-match-btn">Analyze top 5</button>
+      <button class="btn btn-primary" id="sync-btn">Sync ResumeX</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="watchlist">
+      <label for="greenhouse-boards">Greenhouse watchlist (board slugs, comma-separated)</label>
+      <input type="text" id="greenhouse-boards" placeholder="e.g. stripe, figma, discord" />
+      <p class="hint">Board slug: boards.greenhouse.io/<strong>stripe</strong></p>
+      <label for="lever-boards" style="margin-top:10px">Lever watchlist (company slugs, comma-separated)</label>
+      <input type="text" id="lever-boards" placeholder="e.g. netflix, palantir" />
+      <p class="hint">Company slug: jobs.lever.co/<strong>netflix</strong></p>
+    </div>
+
+    <div class="watchlist">
+      <label for="add-job-url">Add job by URL</label>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <input type="url" id="add-job-url" placeholder="https://boards.greenhouse.io/…" style="flex:1" />
+        <button class="btn btn-sm" id="add-job-btn" type="button">Add</button>
+      </div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+    <p id="status"></p>
+    <div id="job-list"></div>
+    <div class="empty" id="empty" hidden>
+      <strong>No jobs in queue</strong>
+      <p>Click <em>Search jobs</em> to discover roles matching your profile.</p>
+    </div>
+  </main>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

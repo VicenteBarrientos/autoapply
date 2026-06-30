@@ -18,7 +18,9 @@
     "remote": true,
     "willingToRelocate": true,
     "startAvailability": "2 weeks",
-    "employmentTypes": ["full-time"]
+    "employmentTypes": ["full-time"],
+    "greenhouseBoards": ["stripe", "figma"],
+    "leverBoards": ["netflix"]
   },
   "experience": {
     "totalYears": 5,

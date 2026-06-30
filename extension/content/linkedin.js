@@ -4,7 +4,7 @@
   const log = (...args) => console.log("[AutoApply LinkedIn]", ...args);
 
   let modalObserved = false;
-  let allAnswers = {}; // accumulate answers across all steps
+  let allAnswers = {};
 
   const MODAL_SELECTORS = [
     ".jobs-easy-apply-modal",
@@ -25,7 +25,7 @@
     const modal = findModal();
     if (modal && !modalObserved) {
       modalObserved = true;
-      allAnswers = {}; // reset for new application
+      allAnswers = {};
       log("Modal detected:", modal.className);
       injectButton(modal);
     }
@@ -47,6 +47,7 @@
     btn.addEventListener("click", () => runAutoFill(modal));
     modal.style.position = "relative";
     modal.appendChild(btn);
+    AutoApply.notifyFileUploads(modal, btn);
     log("Button injected");
   }
 
@@ -76,28 +77,48 @@
       btn.textContent = `⏳ Step ${step}…`;
 
       const jobDescription = scrapeJobDescription();
-      const fields = AutoApply.scrapeFormFields();
-      log(`Step ${step} — fields scraped:`, fields);
+      // Scope field scraping to the modal — avoids LinkedIn nav/search inputs
+      const fields = AutoApply.scrapeFormFields(modal);
+      const unfilledFields = AutoApply.unfilledFields(fields);
+      log(`Step ${step} — fields: ${fields.length} total, ${unfilledFields.length} unfilled`);
 
-      if (fields.length > 0) {
-        const answers = await AutoApply.askBackend(fields, jobDescription, "linkedin");
+      if (unfilledFields.length > 0) {
+        const answers = await AutoApply.askBackend(unfilledFields, jobDescription, "linkedin");
         log(`Step ${step} — answers:`, answers);
-        Object.assign(allAnswers, answers); // accumulate
-        await applyAnswers(answers);
+        Object.assign(allAnswers, answers);
+        await AutoApply.applyAnswers(answers, modal, 120);
+        await handleLinkedInCustomSelects(answers, modal);
         await AutoApply.sleep(400);
       }
 
-      const submitBtn = findButton(modal, ["submit application", "enviar solicitud"]);
-      const reviewBtn = findButton(modal, ["review your application", "review", "revisar"]);
-      const nextBtn = findButton(modal, ["next", "siguiente", "continue"]);
+      const submitBtn = AutoApply.findButton(modal, ["submit application", "enviar solicitud"]);
+      const reviewBtn = AutoApply.findButton(modal, ["review your application", "review", "revisar"]);
+      const nextBtn = AutoApply.findButton(modal, ["next", "siguiente", "continue"]);
 
       if (submitBtn) {
+        const emptyRequired = AutoApply.emptyRequiredFields(modal);
+
+        if (emptyRequired.length > 0) {
+          log("Stopping: required fields empty:", emptyRequired.map((e) => AutoApply.extractLabel(e, modal)));
+          btn.textContent = `⚠️ ${emptyRequired.length} required field(s) empty — review before submitting`;
+          btn.disabled = false;
+          break;
+        }
+
         btn.textContent = "📨 Submitting…";
         log("Clicking Submit");
         submitBtn.click();
         await AutoApply.sleep(2000);
         btn.textContent = "✅ Applied!";
-        await logApplication(jobDescription);
+        const logResult = await AutoApply.logApplication({
+          platform: "linkedin",
+          company: scrapeCompanyName(),
+          role: scrapeJobTitle(),
+          jobDescription,
+          answers: allAnswers,
+        });
+        if (logResult.ok) log("Application logged to ResumeX ✅");
+        else log("Log failed:", logResult.error);
         break;
       } else if (reviewBtn) {
         log("Clicking Review");
@@ -124,30 +145,6 @@
     }
   }
 
-  async function logApplication(jobDescription) {
-    const company = scrapeCompanyName();
-    const role = scrapeJobTitle();
-
-    const application = {
-      id: `app_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      platform: "linkedin",
-      company,
-      role,
-      jobUrl: window.location.href,
-      jobDescription: jobDescription.slice(0, 2000),
-      appliedAt: new Date().toISOString(),
-      status: "applied",
-      answers: allAnswers,
-    };
-
-    log("Logging application:", application);
-
-    chrome.runtime.sendMessage({ type: "LOG_APPLICATION", payload: application }, (res) => {
-      if (res?.ok) log("Application logged to ResumeX ✅");
-      else log("Log failed:", res?.error);
-    });
-  }
-
   function scrapeCompanyName() {
     return (
       document.querySelector(".job-details-jobs-unified-top-card__company-name")?.textContent?.trim() ||
@@ -166,15 +163,6 @@
     );
   }
 
-  function findButton(modal, labels) {
-    const buttons = modal.querySelectorAll("button:not([disabled])");
-    for (const btn of buttons) {
-      const text = btn.textContent.trim().toLowerCase();
-      if (labels.some((l) => text.includes(l))) return btn;
-    }
-    return null;
-  }
-
   function scrapeJobDescription() {
     const descEl =
       document.querySelector(".job-view-layout .jobs-description") ||
@@ -183,71 +171,22 @@
     return descEl ? descEl.innerText.slice(0, 3000) : "";
   }
 
-  async function applyAnswers(answers) {
-    const inputs = document.querySelectorAll(
-      ".jobs-easy-apply-modal input:not([type=hidden]):not([type=submit]):not([type=button]), " +
-      ".jobs-easy-apply-modal textarea, " +
-      ".jobs-easy-apply-modal select"
-    );
-
-    for (const el of inputs) {
-      const label = AutoApply.extractLabel(el);
-      const key = findMatchingKey(answers, el, label);
-      if (!key) continue;
-
-      const value = answers[key];
-      await AutoApply.sleep(120);
-
-      if (el.tagName === "SELECT") {
-        AutoApply.selectOption(el, value);
-      } else if (el.tagName === "TEXTAREA") {
-        AutoApply.fillTextarea(el, value);
-      } else if (el.type === "radio" || el.type === "checkbox") {
-        handleCheckableInput(el, value, label);
-      } else {
-        AutoApply.fillInput(el, value);
-      }
-    }
-
-    await handleLinkedInCustomSelects(answers);
-  }
-
-  function findMatchingKey(answers, el, label) {
-    for (const key of Object.keys(answers)) {
-      if (el.id && el.id.includes(key)) return key;
-      if (el.name && el.name.includes(key)) return key;
-      if (label && label.toLowerCase().includes(key.toLowerCase())) return key;
-      if (key.toLowerCase().includes(label.toLowerCase()) && label.length > 3) return key;
-    }
-    return null;
-  }
-
-  function handleCheckableInput(el, value, label) {
-    const wantChecked =
-      value === true ||
-      value === "yes" ||
-      value === "true" ||
-      (typeof value === "string" && label.toLowerCase().includes(value.toLowerCase()));
-    if (wantChecked !== el.checked) el.click();
-  }
-
-  async function handleLinkedInCustomSelects(answers) {
-    const dropdowns = document.querySelectorAll(
-      ".jobs-easy-apply-modal [data-test-text-selectable-option], " +
-      ".jobs-easy-apply-modal .fb-dropdown"
+  async function handleLinkedInCustomSelects(answers, modal) {
+    const dropdowns = modal.querySelectorAll(
+      "[data-test-text-selectable-option], .fb-dropdown"
     );
     for (const dd of dropdowns) {
-      const label = AutoApply.extractLabel(dd) || dd.textContent.trim();
-      for (const [key, value] of Object.entries(answers)) {
-        if (label.toLowerCase().includes(key.toLowerCase())) {
-          dd.click();
-          await AutoApply.sleep(200);
-          const option = [...document.querySelectorAll("li.fb-dropdown__option, li[role=option]")]
-            .find((li) => li.textContent.toLowerCase().includes(value.toString().toLowerCase()));
-          if (option) option.click();
-          await AutoApply.sleep(100);
-        }
-      }
+      const label = AutoApply.extractLabel(dd, modal) || dd.textContent.trim();
+      // Use shared matcher — stops at first matching key to avoid acting multiple times per dropdown
+      const key = AutoApply.findMatchingKey(answers, dd, label);
+      if (!key) continue;
+      const value = answers[key];
+      dd.click();
+      await AutoApply.sleep(200);
+      const option = [...modal.querySelectorAll("li.fb-dropdown__option, li[role=option]")]
+        .find((li) => li.textContent.toLowerCase().includes(value.toString().toLowerCase()));
+      if (option) option.click();
+      await AutoApply.sleep(100);
     }
   }
-})();
+})().catch((err) => console.error("[AutoApply LinkedIn] Fatal:", err));

@@ -1,9 +1,15 @@
-// Workday content script
+// Workday content script — multi-step with application logging
 
 (async () => {
   const log = (...args) => console.log("[AutoApply Workday]", ...args);
 
-  let currentStep = 0;
+  let allAnswers = {};
+
+  const WORKDAY_FIELD_SELECTOR =
+    "[data-automation-id] input:not([type=hidden]):not([type=file]), " +
+    "[data-automation-id] textarea, " +
+    "[data-automation-id] select, " +
+    "input:not([type=hidden]):not([type=submit]):not([type=file]), textarea, select";
 
   function isApplicationPage() {
     return (
@@ -32,21 +38,15 @@
       "border:none;border-radius:6px;padding:8px 18px;font-size:14px;cursor:pointer;font-weight:600;";
     btn.addEventListener("click", () => runAutoFill(btn));
     document.body.appendChild(btn);
+    AutoApply.notifyFileUploads(document.querySelector("main, form") || document.body, btn);
     log("Button injected");
   }
 
   async function runAutoFill(btn) {
     btn.disabled = true;
-    btn.textContent = "⏳ Filling…";
+    allAnswers = {};
     try {
-      const jobDescription = scrapeJobDescription();
-      const fields = scrapeWorkdayFields();
-      log("Fields scraped:", fields);
-
-      const answers = await AutoApply.askBackend(fields, jobDescription, "workday");
-      log("Answers:", answers);
-      await applyAnswers(answers);
-      btn.textContent = "✅ Filled!";
+      await fillAndAdvance(btn);
     } catch (err) {
       log("Error:", err);
       btn.textContent = "❌ Error";
@@ -58,70 +58,126 @@
     }
   }
 
-  function scrapeWorkdayFields() {
-    const fields = [];
-    // Workday uses data-automation-id attributes extensively
-    const inputs = document.querySelectorAll(
-      "[data-automation-id] input:not([type=hidden]), " +
-      "[data-automation-id] textarea, " +
-      "[data-automation-id] select, " +
-      "input:not([type=hidden]):not([type=submit]), textarea, select"
-    );
+  async function fillAndAdvance(btn) {
+    let step = 1;
 
-    inputs.forEach((el) => {
-      if (el.offsetParent === null) return;
-      const label = AutoApply.extractLabel(el) || el.closest("[data-automation-id]")?.getAttribute("data-automation-id") || "";
-      fields.push({
-        tag: el.tagName.toLowerCase(),
-        type: el.type || null,
-        name: el.name || null,
-        id: el.id || null,
-        label,
-        required: el.required,
-        options: el.tagName === "SELECT"
-          ? Array.from(el.options).map((o) => o.text.trim())
-          : undefined,
+    while (true) {
+      btn.textContent = `⏳ Step ${step}…`;
+
+      const jobDescription = scrapeJobDescription();
+      const form = findForm();
+      const fields = AutoApply.scrapeFormFields(form || document, {
+        selector: WORKDAY_FIELD_SELECTOR,
+        dedupe: true,
       });
-    });
-    return fields;
-  }
+      const unfilledFields = AutoApply.unfilledFields(fields);
+      log(`Step ${step} — fields: ${fields.length} total, ${unfilledFields.length} unfilled`);
 
-  async function applyAnswers(answers) {
-    const inputs = document.querySelectorAll(
-      "input:not([type=hidden]):not([type=submit]):not([type=button]), textarea, select"
-    );
-    for (const el of inputs) {
-      if (el.offsetParent === null) continue;
-      const label =
-        AutoApply.extractLabel(el) ||
-        el.closest("[data-automation-id]")?.getAttribute("data-automation-id") || "";
-      const key = findMatchingKey(answers, el, label);
-      if (!key) continue;
-      const value = answers[key];
-      await AutoApply.sleep(150);
+      if (unfilledFields.length > 0) {
+        const answers = await AutoApply.askBackend(unfilledFields, jobDescription, "workday");
+        log(`Step ${step} — answers:`, answers);
+        Object.assign(allAnswers, answers);
+        await AutoApply.applyAnswers(answers, document, 150);
+        await handleWorkdayCustomDropdowns(answers);
+        await AutoApply.sleep(500);
+      }
 
-      if (el.tagName === "SELECT") {
-        AutoApply.selectOption(el, value);
-      } else if (el.tagName === "TEXTAREA") {
-        AutoApply.fillTextarea(el, value);
-      } else if (el.type === "radio" || el.type === "checkbox") {
-        const wantChecked = value === true || value === "yes" || value === "true";
-        if (wantChecked !== el.checked) el.click();
+      // Check Workday-specific automation ID first, then fall back to text
+      const submitBtn =
+        document.querySelector("[data-automation-id='wd-CommandButton_uic_submitButton']:not([disabled])") ||
+        AutoApply.findButton(document, ["submit application", "submit"]);
+      const nextBtn =
+        document.querySelector("[data-automation-id='wd-CommandButton_uic_nextButton']:not([disabled])") ||
+        AutoApply.findButton(document, ["next", "save and continue", "siguiente", "weiter", "continue"]);
+
+      if (submitBtn) {
+        const emptyRequired = AutoApply.emptyRequiredFields(document);
+
+        if (emptyRequired.length > 0) {
+          log("Stopping: required fields empty:", emptyRequired.map((e) => AutoApply.extractLabel(e, document)));
+          btn.textContent = `⚠️ ${emptyRequired.length} required field(s) empty — review`;
+          btn.disabled = false;
+          break;
+        }
+
+        btn.textContent = "📨 Submitting…";
+        log("Clicking Submit");
+        submitBtn.click();
+        await AutoApply.sleep(2000);
+        btn.textContent = "✅ Applied!";
+        const logResult = await AutoApply.logApplication({
+          platform: "workday",
+          company: scrapeCompanyName(),
+          role: scrapeJobTitle(),
+          jobDescription,
+          answers: allAnswers,
+        });
+        if (logResult.ok) log("Application logged ✅");
+        else log("Log failed:", logResult.error);
+        break;
+      } else if (nextBtn) {
+        log("Clicking Next");
+        nextBtn.click();
+        await AutoApply.sleep(2000);
+        step++;
       } else {
-        AutoApply.fillInput(el, value);
+        log("No navigation button — stopping");
+        btn.textContent = "✅ Filled!";
+        break;
+      }
+
+      if (step > 20) {
+        log("Too many steps — stopping");
+        btn.textContent = "⚠️ Check form";
+        break;
       }
     }
   }
 
-  function findMatchingKey(answers, el, label) {
-    for (const key of Object.keys(answers)) {
-      if (el.id && el.id.toLowerCase().includes(key.toLowerCase())) return key;
-      if (el.name && el.name.toLowerCase().includes(key.toLowerCase())) return key;
-      if (label && label.toLowerCase().includes(key.toLowerCase())) return key;
-      if (key.toLowerCase().includes(label?.toLowerCase()) && label?.length > 3) return key;
-    }
-    return null;
+  function scrapeCompanyName() {
+    return (
+      document.querySelector("[data-automation-id='employerName']")?.textContent?.trim() ||
+      document.querySelector("[class*='company'], [class*='employer']")?.textContent?.trim() ||
+      "Unknown Company"
+    );
   }
+
+  function scrapeJobTitle() {
+    return (
+      document.querySelector("[data-automation-id='jobPostingHeader'] h1, h1")?.textContent?.trim() ||
+      "Unknown Role"
+    );
+  }
+
+  async function handleWorkdayCustomDropdowns(answers) {
+    const triggers = document.querySelectorAll(
+      "[data-automation-id] [aria-haspopup='listbox']:not([disabled]), " +
+      "[data-automation-id] [aria-haspopup='true']:not([disabled])"
+    );
+    for (const trigger of triggers) {
+      const container = trigger.closest("[data-automation-id]");
+      const automationId = container?.getAttribute("data-automation-id") || "";
+      const label = AutoApply.extractLabel(trigger, document) || automationId;
+      const key = AutoApply.findMatchingKey(answers, trigger, label);
+      if (!key) continue;
+
+      const value = String(answers[key]).toLowerCase();
+      trigger.click();
+      await AutoApply.sleep(500);
+
+      const options = [...document.querySelectorAll("[role='option']:not([aria-disabled='true'])")];
+      const match = options.find((o) => o.textContent.trim().toLowerCase().includes(value));
+      if (match) {
+        match.click();
+        await AutoApply.sleep(300);
+      } else {
+        // Close without selecting if no match
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        await AutoApply.sleep(200);
+      }
+    }
+  }
+
 
   function scrapeJobDescription() {
     const el = document.querySelector(
@@ -135,4 +191,4 @@
   });
   observer.observe(document.body, { childList: true, subtree: true });
   if (isApplicationPage()) injectButton();
-})();
+})().catch((err) => console.error("[AutoApply Workday] Fatal:", err));

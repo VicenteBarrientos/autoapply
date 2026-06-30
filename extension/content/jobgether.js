@@ -3,6 +3,8 @@
 (async () => {
   const log = (...args) => console.log("[AutoApply Jobgether]", ...args);
 
+  let allAnswers = {};
+
   function isApplicationPage() {
     return (
       window.location.hostname.includes("jobgether.com") &&
@@ -25,21 +27,36 @@
     btn.addEventListener("click", () => runAutoFill(form, btn));
 
     form.insertBefore(btn, form.firstElementChild);
+    AutoApply.notifyFileUploads(form, btn);
     log("Button injected");
   }
 
   async function runAutoFill(form, btn) {
     btn.disabled = true;
     btn.textContent = "⏳ Filling…";
+    allAnswers = {};
     try {
       const jobDescription = scrapeJobDescription();
-      const fields = AutoApply.scrapeFormFields();
+      const fields = AutoApply.scrapeFormFields(form);
       log("Fields scraped:", fields);
 
       const answers = await AutoApply.askBackend(fields, jobDescription, "jobgether");
       log("Answers:", answers);
-      await applyAnswers(form, answers);
-      btn.textContent = "✅ Filled!";
+      Object.assign(allAnswers, answers);
+      await AutoApply.applyAnswers(answers, form, 100);
+
+      AutoApply.attachSubmitLogger(form, async () => {
+        const logResult = await AutoApply.logApplication({
+          platform: "jobgether",
+          company: scrapeCompanyName(),
+          role: scrapeJobTitle(),
+          jobDescription,
+          answers: allAnswers,
+        });
+        if (logResult.ok) log("Application logged ✅");
+        else log("Log failed:", logResult.error);
+      });
+      btn.textContent = "✅ Filled! Submit when ready.";
     } catch (err) {
       log("Error:", err);
       btn.textContent = "❌ Error";
@@ -51,40 +68,21 @@
     }
   }
 
-  async function applyAnswers(form, answers) {
-    const inputs = form.querySelectorAll(
-      "input:not([type=hidden]):not([type=submit]):not([type=button]), textarea, select"
+  function scrapeCompanyName() {
+    return (
+      document.querySelector("[class*='company-name'], [class*='employer']")?.textContent?.trim() ||
+      document.querySelector("h2, h3")?.textContent?.trim() ||
+      "Unknown Company"
     );
-    for (const el of inputs) {
-      if (el.offsetParent === null) continue;
-      const label = AutoApply.extractLabel(el);
-      const key = findMatchingKey(answers, el, label);
-      if (!key) continue;
-      const value = answers[key];
-      await AutoApply.sleep(100);
-
-      if (el.tagName === "SELECT") {
-        AutoApply.selectOption(el, value);
-      } else if (el.tagName === "TEXTAREA") {
-        AutoApply.fillTextarea(el, value);
-      } else if (el.type === "radio" || el.type === "checkbox") {
-        const wantChecked = value === true || value === "yes" || value === "true";
-        if (wantChecked !== el.checked) el.click();
-      } else {
-        AutoApply.fillInput(el, value);
-      }
-    }
   }
 
-  function findMatchingKey(answers, el, label) {
-    for (const key of Object.keys(answers)) {
-      if (el.id && el.id.toLowerCase().includes(key.toLowerCase())) return key;
-      if (el.name && el.name.toLowerCase().includes(key.toLowerCase())) return key;
-      if (label && label.toLowerCase().includes(key.toLowerCase())) return key;
-      if (key.toLowerCase().includes(label?.toLowerCase()) && label?.length > 3) return key;
-    }
-    return null;
+  function scrapeJobTitle() {
+    return (
+      document.querySelector("h1")?.textContent?.trim() ||
+      "Unknown Role"
+    );
   }
+
 
   function scrapeJobDescription() {
     const el = document.querySelector(
@@ -98,4 +96,4 @@
   });
   observer.observe(document.body, { childList: true, subtree: true });
   if (isApplicationPage()) injectButton();
-})();
+})().catch((err) => console.error("[AutoApply Jobgether] Fatal:", err));

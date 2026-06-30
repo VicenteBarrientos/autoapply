@@ -19,8 +19,8 @@ router.post("/fill", async (req, res) => {
     const answers = await fillFormFields({ fields, jobDescription, platform, profile });
     res.json(answers);
   } catch (err) {
-    console.error("[apply/fill]", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("[apply/fill]", err);
+    res.status(500).json({ error: "Failed to process form fields" });
   }
 });
 

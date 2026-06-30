@@ -7,10 +7,11 @@ const SYSTEM_PROMPT = `You are an expert job application assistant. Given a cand
 Rules:
 - Return ONLY valid JSON — no markdown, no prose, no code fences.
 - Keys must match the field "label" (or "name" if no label) exactly as provided.
+- Each field may include a "value" (current text) or "checked" (current boolean) property. If the existing value is already correct and complete, omit that key from your response to leave it unchanged.
 - For yes/no questions use "Yes" or "No".
 - For salary fields return only a number (no currency symbols).
 - For "years of experience" fields return a number.
-- For cover letters or "why do you want to work here" fields write 2-3 focused sentences.
+- For cover letter, "why do you want to work here", or motivational fields: if the profile includes a coverLetterTemplate, use it as the base and substitute {role}, {company}, {years}, {skills}, and {custom_paragraph} with contextually appropriate values from the profile and job description. Otherwise write 2-3 focused sentences.
 - Skip fields where you have no confident answer (omit the key).
 - Never fabricate credentials, institutions, or employment history not in the profile.`;
 
@@ -32,16 +33,25 @@ Return a JSON object with field labels as keys and the best answer as values.
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 1024,
+    max_tokens: 4096,
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: userMessage }],
   });
 
-  const text = response.content[0].text.trim();
+  const block = response.content?.[0];
+  if (!block || block.type !== "text") {
+    throw new Error("Unexpected response format from Claude");
+  }
 
+  const text = block.text.trim();
   // Strip accidental markdown fences
-  const jsonText = text.replace(/^```(?:json)?/m, "").replace(/```$/m, "").trim();
-  return JSON.parse(jsonText);
+  const jsonText = text.replace(/^```(?:json)?\s*/m, "").replace(/\s*```$/m, "").trim();
+
+  try {
+    return JSON.parse(jsonText);
+  } catch {
+    throw new Error("Claude returned a non-JSON response");
+  }
 }
 
 module.exports = { fillFormFields };
