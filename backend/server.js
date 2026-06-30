@@ -7,6 +7,7 @@ const morgan = require("morgan");
 const applyRouter = require("./routes/apply");
 const jobsRouter = require("./routes/jobs");
 const profileRouter = require("./routes/profile");
+const { isAnthropicConfigured, isAuthRequired } = require("./lib/env");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -58,7 +59,13 @@ app.get("/", (_req, res) =>
     ],
   })
 );
-app.get("/health", (_req, res) => res.json({ ok: true }));
+app.get("/health", (_req, res) =>
+  res.json({
+    ok: true,
+    anthropicConfigured: isAnthropicConfigured(),
+    authRequired: isAuthRequired(),
+  })
+);
 
 // Only bind to a port when run directly — not when imported by tests or Vercel
 if (require.main === module) {

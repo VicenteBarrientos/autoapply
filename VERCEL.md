@@ -8,7 +8,7 @@
 
 | Variable | Description |
 |----------|-------------|
-| `ANTHROPIC_API_KEY` | Claude API key (`sk-ant-...`) |
+| `ANTHROPIC_API_KEY` | Claude API key (`sk-ant-...`) — **required** for apply, jobs, and profile parse |
 | `AUTOAPPLY_SECRET` | Shared secret — same value as in the Chrome extension popup |
 | `JSEARCH_API_KEY` | Optional — broader job search via JSearch |
 
@@ -16,7 +16,7 @@
 
 ```bash
 curl https://YOUR-PROJECT.vercel.app/health
-# → {"ok":true}
+# → {"ok":true,"anthropicConfigured":true,"authRequired":true}
 
 curl https://YOUR-PROJECT.vercel.app/
 # → JSON with endpoints list
