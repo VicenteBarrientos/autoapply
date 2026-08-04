@@ -6,8 +6,15 @@ function isAnthropicConfigured() {
   return Boolean(getAnthropicKey());
 }
 
+function getAutoapplySecrets() {
+  return [...new Set([
+    process.env.AUTOAPPLY_SECRET?.trim(),
+    process.env.AUTOAPPLY_SECRET_NEXT?.trim(),
+  ].filter(Boolean))];
+}
+
 function isAuthRequired() {
-  return Boolean(process.env.AUTOAPPLY_SECRET?.trim());
+  return getAutoapplySecrets().length > 0;
 }
 
 /** Send 503 and return false when Anthropic is not configured. */
@@ -21,6 +28,7 @@ function requireAnthropicKey(res) {
 
 module.exports = {
   getAnthropicKey,
+  getAutoapplySecrets,
   isAnthropicConfigured,
   isAuthRequired,
   requireAnthropicKey,

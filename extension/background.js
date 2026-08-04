@@ -216,7 +216,7 @@ async function testBackendConnection({ url, secret } = {}) {
   const headers = {};
   if (key) headers["X-Autoapply-Key"] = key;
 
-  const res = await fetchWithRetry(`${backendUrl}/health`, { method: "GET", headers }, 0);
+  const res = await fetchWithRetry(`${backendUrl}/api/auth/check`, { method: "GET", headers }, 0);
 
   if (res.status === 401) {
     return { ok: false, error: "Secret rejected (401) — check AUTOAPPLY_SECRET." };

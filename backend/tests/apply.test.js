@@ -11,6 +11,11 @@ jest.mock("@anthropic-ai/sdk", () => {
 
 const app = require("../server");
 
+afterEach(() => {
+  delete process.env.AUTOAPPLY_SECRET;
+  delete process.env.AUTOAPPLY_SECRET_NEXT;
+});
+
 const VALID_PAYLOAD = {
   fields: [
     { tag: "input", type: "text", name: "first_name", label: "First Name", required: true },
@@ -39,6 +44,35 @@ describe("GET /", () => {
     expect(res.status).toBe(200);
     expect(res.body.name).toBe("AutoApply Backend");
     expect(res.body.endpoints).toContain("GET /health");
+  });
+});
+
+describe("GET /api/auth/check", () => {
+  it("accepts the primary secret", async () => {
+    process.env.AUTOAPPLY_SECRET = "primary-test-secret";
+    const res = await request(app)
+      .get("/api/auth/check")
+      .set("X-Autoapply-Key", "primary-test-secret");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, authRequired: true });
+  });
+
+  it("accepts the next secret during rotation", async () => {
+    process.env.AUTOAPPLY_SECRET = "primary-test-secret";
+    process.env.AUTOAPPLY_SECRET_NEXT = "next-test-secret";
+    const res = await request(app)
+      .get("/api/auth/check")
+      .set("X-Autoapply-Key", "next-test-secret");
+    expect(res.status).toBe(200);
+  });
+
+  it("rejects an incorrect secret", async () => {
+    process.env.AUTOAPPLY_SECRET = "primary-test-secret";
+    process.env.AUTOAPPLY_SECRET_NEXT = "next-test-secret";
+    const res = await request(app)
+      .get("/api/auth/check")
+      .set("X-Autoapply-Key", "incorrect-test-secret");
+    expect(res.status).toBe(401);
   });
 });
 
