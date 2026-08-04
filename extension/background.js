@@ -1,5 +1,5 @@
 const DEFAULT_BACKEND_URL = "https://autoapply-rwhg.vercel.app";
-const RESUMEX_URL = "https://resume-x-yixz.vercel.app";
+const RESUMEX_URL = "https://resumex.talentxrecruiting.com";
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "FILL_FORM") {

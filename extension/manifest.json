@@ -12,7 +12,7 @@
     "https://jobs.lever.co/*",
     "https://*.myworkdayjobs.com/*",
     "https://www.jobgether.com/*",
-    "https://resume-x-yixz.vercel.app/*",
+    "https://resumex.talentxrecruiting.com/*",
     "https://autoapply-rwhg.vercel.app/*",
     "https://backend-inky-kappa-12.vercel.app/*",
     "http://localhost:*/*",
@@ -32,7 +32,7 @@
   "web_accessible_resources": [
     {
       "resources": ["content/resumex-bridge.js"],
-      "matches": ["https://resume-x-yixz.vercel.app/*"]
+      "matches": ["https://resumex.talentxrecruiting.com/*"]
     }
   ],
   "content_scripts": [
@@ -67,7 +67,7 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://resume-x-yixz.vercel.app/*"],
+      "matches": ["https://resumex.talentxrecruiting.com/*"],
       "js": ["content/resumex.js"],
       "run_at": "document_idle"
     }
