@@ -95,6 +95,8 @@ Configure:
 ```env
 ANTHROPIC_API_KEY="replace-with-your-key"
 AUTOAPPLY_SECRET="replace-with-a-long-random-value"
+# Optional only while rotating clients without downtime:
+AUTOAPPLY_SECRET_NEXT=""
 PORT=3000
 ```
 
@@ -136,7 +138,7 @@ After editing extension code, reload the unpacked extension from `chrome://exten
 
 ## Security and privacy
 
-- `AUTOAPPLY_SECRET` protects API routes through the `X-Autoapply-Key` header. Production requests are rejected when the server has no shared secret configured.
+- `AUTOAPPLY_SECRET` protects API routes through the `X-Autoapply-Key` header. `AUTOAPPLY_SECRET_NEXT` temporarily admits a second value for zero-downtime rotation; remove it after every client has migrated. Production requests are rejected when neither value is configured.
 - Candidate profile data is stored in `chrome.storage.local` and, when an answer is requested, is transmitted to the configured backend **and Anthropic**.
 - The API rate limiter reduces accidental request bursts, but a serverless deployment needs a shared/durable store for enforcement across instances.
 - Keep `.env`, candidate profiles, seed scripts, injected expressions, and browser exports out of Git.

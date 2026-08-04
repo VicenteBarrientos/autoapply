@@ -9,7 +9,12 @@ jest.mock("@anthropic-ai/sdk", () => {
   return jest.fn().mockImplementation(() => ({ messages: { create: mockCreate } }));
 });
 
+const AUTH_ENV_KEYS = ["AUTOAPPLY_SECRET", "AUTOAPPLY_SECRET_NEXT", "VERCEL"];
 const app = require("../server");
+
+beforeEach(() => {
+  for (const key of AUTH_ENV_KEYS) delete process.env[key];
+});
 
 const VALID_PAYLOAD = {
   fields: [
@@ -39,6 +44,55 @@ describe("GET /", () => {
     expect(res.status).toBe(200);
     expect(res.body.name).toBe("AutoApply Backend");
     expect(res.body.endpoints).toContain("GET /health");
+  });
+});
+
+describe("GET /api/auth/check", () => {
+  it("accepts the primary secret", async () => {
+    process.env.AUTOAPPLY_SECRET = "primary-test-secret";
+    const res = await request(app)
+      .get("/api/auth/check")
+      .set("X-Autoapply-Key", "primary-test-secret");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, authRequired: true });
+  });
+
+  it("accepts the next secret during rotation", async () => {
+    process.env.AUTOAPPLY_SECRET = "primary-test-secret";
+    process.env.AUTOAPPLY_SECRET_NEXT = "next-test-secret";
+    const res = await request(app)
+      .get("/api/auth/check")
+      .set("X-Autoapply-Key", "next-test-secret");
+    expect(res.status).toBe(200);
+  });
+
+  it("accepts the next secret when it is the only configured value", async () => {
+    process.env.AUTOAPPLY_SECRET_NEXT = "next-test-secret";
+    const res = await request(app)
+      .get("/api/auth/check")
+      .set("X-Autoapply-Key", "next-test-secret");
+    expect(res.status).toBe(200);
+  });
+
+  it("rejects a missing secret", async () => {
+    process.env.AUTOAPPLY_SECRET = "primary-test-secret";
+    const res = await request(app).get("/api/auth/check");
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects an incorrect secret", async () => {
+    process.env.AUTOAPPLY_SECRET = "primary-test-secret";
+    process.env.AUTOAPPLY_SECRET_NEXT = "next-test-secret";
+    const res = await request(app)
+      .get("/api/auth/check")
+      .set("X-Autoapply-Key", "incorrect-test-secret");
+    expect(res.status).toBe(401);
+  });
+
+  it("fails closed in production when neither secret is configured", async () => {
+    process.env.VERCEL = "1";
+    const res = await request(app).get("/api/auth/check");
+    expect(res.status).toBe(503);
   });
 });
 
