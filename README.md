@@ -1,158 +1,151 @@
 # AutoApply
 
-AI-powered Chrome extension that automatically fills job application forms across LinkedIn, Indeed, Greenhouse, Lever, Workday, and Jobgether — synced with a [ResumeX](https://resume-x-yixz.vercel.app) dashboard.
+<p align="center">
+  <strong>An experimental Chrome extension for profile-backed job application autofill.</strong><br />
+  A Manifest V3 extension captures visible form fields, an Express backend drafts answers with Claude, and ResumeX keeps the reusable profile and application log together.
+</p>
 
-Part of the **ResumeX ecosystem**: CV Formatter → Match Analyzer → **Job Searcher** → AutoApply. See [docs/ECOSYSTEM.md](docs/ECOSYSTEM.md) for integration details.
+<p align="center">
+  <a href="https://resumex.talentxrecruiting.com/autoapply"><strong>Open the ResumeX workspace</strong></a>
+  ·
+  <a href="#local-setup">Run locally</a>
+  ·
+  <a href="./docs/ECOSYSTEM.md">Ecosystem contract</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Chrome-Manifest_V3-4285F4?logo=googlechrome&logoColor=white" alt="Chrome Manifest V3" />
+  <img src="https://img.shields.io/badge/Node.js-Express-339933?logo=nodedotjs&logoColor=white" alt="Node.js and Express" />
+  <img src="https://img.shields.io/badge/Claude-assisted_answers-D97706" alt="Claude-assisted answers" />
+  <img src="https://img.shields.io/badge/Status-experimental-F59E0B" alt="Experimental status" />
+</p>
+
+<p align="center">
+  <img src="./docs/extension-popup.png" width="380" alt="AutoApply extension popup" />
+</p>
+
+> [!WARNING]
+> AutoApply is experimental. Some platform adapters can advance multi-step flows and click a final submit button after required-field checks. Review your profile and generated answers **before starting automation**, use it only where permitted, and do not rely on it for applications that require legal, accessibility, compensation, or work-authorization judgment.
 
 ## How it works
 
-```
-CV Formatter  →  profile
-Job Searcher  →  job queue  →  Match Analyzer  →  scores
-                       ↓
-Job site form  →  Chrome extension  →  Node backend  →  Claude AI
-                       ↓                                     ↓
-                  ResumeX dashboard  ←  application log  ←  answers
-```
-
-The extension scrapes visible form fields, sends them along with your candidate profile to a Node.js backend, which asks Claude to fill in the best answers. Completed applications are logged to the ResumeX dashboard.
-
-## Project structure
-
-```
-job-applier/
-├── shared/
-│   └── hub-contract.js       ResumeX ecosystem schema + storage keys
-├── docs/
-│   └── ECOSYSTEM.md          Integration guide for all ResumeX apps
-├── backend/                  Node.js + Express API
-│   ├── server.js             Entry point, CORS, rate limiting, auth middleware
-│   ├── routes/apply.js       POST /api/apply/fill
-│   ├── routes/jobs.js        POST /api/jobs/search, /match, /normalize
-│   ├── services/claude.js    Anthropic Claude integration
-│   ├── services/jobSearch.js Job discovery providers
-│   └── services/jobMatch.js  Profile ↔ job match scoring
-└── extension/                Chrome MV3 extension
-    ├── manifest.json
-    ├── background.js         Service worker — fetch relay, storage, logging
-    ├── popup/                Extension popup UI
-    └── content/              Per-platform content scripts
-        ├── common.js         Shared DOM helpers (fillInput, scrapeFormFields, …)
-        ├── linkedin.js       Multi-step Easy Apply loop
-        ├── indeed.js         Multi-step apply loop
-        ├── greenhouse.js     Single-page form fill + submit logger
-        ├── lever.js          Single-page form fill + submit logger
-        ├── workday.js        Multi-step apply loop
-        ├── jobgether.js      Single-page form fill + submit logger
-        ├── resumex.js        ResumeX content script relay
-        └── resumex-bridge.js ResumeX page-context localStorage bridge
+```mermaid
+flowchart LR
+  Profile["ResumeX or local profile"] --> Extension["Chrome MV3 extension"]
+  Page["Visible application form"] --> Extension
+  Extension --> API["Express API"]
+  API --> Claude["Anthropic Claude"]
+  Claude --> API
+  API --> Extension
+  Extension --> Form["Filled / advanced form"]
+  Extension --> Log["ResumeX application log"]
 ```
 
-## Setup
+The extension sends the candidate profile, job context, and detected form fields to the configured backend. The backend sends that context to Anthropic and returns a label-to-answer JSON object. Content scripts apply the result to the current page.
 
-### 1. Backend
+## Platform adapters
+
+| Platform | Behavior in this prototype |
+| --- | --- |
+| LinkedIn Easy Apply | Fills fields, advances steps, checks required fields, and can submit. |
+| Indeed | Fills fields, advances steps, checks required fields, and can submit. |
+| Workday | Handles a multi-step flow and can submit when a submit control is detected. |
+| Greenhouse | Fills the single-page form; the user reviews and submits. |
+| Lever | Fills the single-page form; the user reviews and submits. |
+| Jobgether | Fills detected fields and records the application flow. |
+
+Job-board DOM structures change frequently. Treat this table as the intended adapter behavior, not a compatibility guarantee.
+
+## Repository layout
+
+```text
+extension/                 Chrome Manifest V3 extension
+  popup/                   Profile, backend and queue controls
+  content/                 Shared helpers and platform adapters
+  jobs/                    Local job queue dashboard
+backend/                   Express API and Claude integration
+  routes/                  Apply, jobs and profile endpoints
+  services/                Answer generation, search and matching
+  tests/                   Jest + Supertest coverage
+shared/hub-contract.js     ResumeX storage and message contract
+docs/ECOSYSTEM.md          Cross-project integration notes
+resumex-pages/             Standalone ResumeX integration pages
+resumex-patches/           Reference integration patches
+```
+
+## Local setup
+
+### 1. Start the backend
 
 ```bash
-cd backend
+git clone https://github.com/VicenteBarrientos/autoapply.git
+cd autoapply/backend
 npm install
 cp .env.example .env
 ```
 
-Edit `.env`:
+On Windows PowerShell:
 
+```powershell
+Copy-Item .env.example .env
 ```
-ANTHROPIC_API_KEY=sk-ant-...        # Get from console.anthropic.com
-AUTOAPPLY_SECRET=<random-string>    # e.g. openssl rand -hex 32
+
+Configure:
+
+```env
+ANTHROPIC_API_KEY="replace-with-your-key"
+AUTOAPPLY_SECRET="replace-with-a-long-random-value"
 PORT=3000
 ```
 
-Start locally:
+Generate the shared secret with a cryptographically secure tool, then store the same value in the extension popup. In production the API fails closed when this secret is missing.
 
 ```bash
-node server.js
+npm start
 ```
 
-Or deploy to Vercel — a `vercel.json` is included. After deploying, update `BACKEND_URL` in `extension/background.js` to your deployment URL.
+### 2. Load the extension
 
-### 2. Candidate profile
+1. Open `chrome://extensions`.
+2. Enable **Developer mode**.
+3. Select **Load unpacked** and choose the repository's `extension/` directory.
+4. Open the extension popup.
+5. Enter the backend URL and shared secret, then test the connection.
+6. Pull a profile from ResumeX or save a local profile.
 
-Copy the example profile and fill in your real information:
+### 3. Try a supported form
 
-```bash
-cp backend/profiles/candidate.example.json backend/profiles/candidate.json
-```
+Open a supported job application, inspect the stored profile, and start the injected AutoApply control. Use synthetic data first when developing an adapter.
 
-`candidate.json` is git-ignored so your personal data is never committed. Then paste the JSON into the popup's **Local Profile** textarea and click **Save profile**, or use **Pull profile from ResumeX** to sync directly. The profile saved in the popup is what the extension uses — the file is just a convenient editor.
+## Testing
 
-Key sections:
-- `personal` — name, email, phone, LinkedIn, GitHub
-- `target` — desired roles, salary range, remote preference
-- `experience` — years, current title, summary
-- `education` — degrees
-- `skills` — languages, frameworks, tools
-- `workAuthorization` — country, visa status
-- `coverLetterTemplate` — base template with `{role}`, `{company}`, `{years}`, `{skills}`, `{custom_paragraph}` placeholders
-
-### 3. Chrome extension
-
-1. Open Chrome and go to `chrome://extensions`
-2. Enable **Developer mode** (top right)
-3. Click **Load unpacked** and select the `extension/` folder
-4. Click the AutoApply icon in the toolbar
-5. In the popup, paste your `AUTOAPPLY_SECRET` value (from `.env`) into the **Backend Secret** field and click **Save secret** — this is stored in `chrome.storage.local`, not in source code
-6. Save your candidate profile (or pull it from ResumeX)
-
-## Usage
-
-### LinkedIn Easy Apply
-Navigate to a job on LinkedIn and click **Easy Apply**. An ⚡ **Auto-Apply** button appears in the modal — click it to fill and auto-advance through all steps. The extension stops and warns you if any required field is still empty before submitting.
-
-### Indeed
-Open an Indeed job and click **Apply now**. The ⚡ button appears fixed to the top-right — click it to fill and advance through all steps.
-
-### Greenhouse / Lever / Jobgether
-Open a job application page. The ⚡ button is injected at the top of the form. Click it to fill, review the answers, then submit yourself — the application is logged to ResumeX when you click the submit button.
-
-### Workday
-Open a Workday job application. The ⚡ button is fixed top-right. Click it to fill and auto-advance through all steps.
-
-## Security notes
-
-- **`AUTOAPPLY_SECRET`**: set a strong random value in both the backend `.env` and the extension popup. The backend rejects all requests without a matching `X-Autoapply-Key` header.
-- **Rate limiting**: the backend allows 30 API requests per minute per IP to prevent runaway Anthropic usage. Note: `express-rate-limit` uses in-memory state, so each Vercel serverless invocation has an independent counter — rate limits are not enforced across cold-start instances. For stricter enforcement, replace the default store with a Redis-backed one (e.g. [`rate-limit-redis`](https://www.npmjs.com/package/rate-limit-redis)).
-- **Profile data**: your candidate profile is stored in `chrome.storage.local` (local to your browser, not synced). It is sent to your own backend only — never to third parties.
-
-## Development
-
-### Running backend tests
+Backend tests mock Anthropic, so they do not make paid model calls:
 
 ```bash
 cd backend
 npm test
 ```
 
-Tests use Jest + supertest with Anthropic fully mocked — no real API calls are made.
-
-### Local backend with auto-reload
+For local auto-reload:
 
 ```bash
-cd backend
-npm run dev   # uses nodemon
+npm run dev
 ```
 
-### Extension reload after code changes
+After editing extension code, reload the unpacked extension from `chrome://extensions` and refresh the target page.
 
-After editing any file in `extension/`, go to `chrome://extensions`, find AutoApply, and click the ↺ reload button. Content scripts reload automatically on next page visit; the background service worker reloads immediately.
+## Security and privacy
 
-## Backend deployment (Vercel)
+- `AUTOAPPLY_SECRET` protects API routes through the `X-Autoapply-Key` header. Production requests are rejected when the server has no shared secret configured.
+- Candidate profile data is stored in `chrome.storage.local` and, when an answer is requested, is transmitted to the configured backend **and Anthropic**.
+- The API rate limiter reduces accidental request bursts, but a serverless deployment needs a shared/durable store for enforcement across instances.
+- Keep `.env`, candidate profiles, seed scripts, injected expressions, and browser exports out of Git.
+- Rotate the shared secret immediately if it appears in logs, shell history, screenshots, or an accidentally tracked file.
 
-```bash
-cd backend
-npx vercel
-```
+## Responsible use
 
-Set environment variables in the Vercel dashboard:
-- `ANTHROPIC_API_KEY`
-- `AUTOAPPLY_SECRET`
+Generated answers can be incomplete or wrong. The candidate is responsible for the truth of every application and for compliance with job-board terms. Never fabricate credentials, work authorization, salary history, disability information, demographic information, or professional experience.
 
-After deployment, update `BACKEND_URL` in `extension/background.js` to the new URL, then reload the extension.
+## Deployment
+
+See [VERCEL.md](./VERCEL.md) for backend deployment. The current production default in the extension is `https://autoapply-rwhg.vercel.app`; forks should set their own backend URL from the popup.

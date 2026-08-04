@@ -1,6 +1,6 @@
 /**
  * ResumeX-hosted job queue page.
- * Deploy to resume-x-yixz.vercel.app/jobs — reads/writes resumex_jobs in localStorage.
+ * Deploy to resumex.talentxrecruiting.com/jobs — reads/writes resumex_jobs in localStorage.
  * Requires resumex-bridge.js (or AutoApply extension) for full ecosystem sync.
  */
 

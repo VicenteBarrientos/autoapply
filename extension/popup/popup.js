@@ -8,7 +8,7 @@ const appCountEl = document.getElementById("app-count");
 const jobQueueEl = document.getElementById("job-queue-count");
 
 const DEFAULT_BACKEND_URL = "https://autoapply-rwhg.vercel.app";
-const RESUMEX_URL = "https://resume-x-yixz.vercel.app";
+const RESUMEX_URL = "https://resumex.talentxrecruiting.com";
 
 function isPlaceholderProfile(profile) {
   if (!profile) return false;
@@ -72,7 +72,7 @@ document.getElementById("open-queue-btn").addEventListener("click", () => {
 
 document.querySelector("a.open-dashboard").addEventListener("click", (e) => {
   e.preventDefault();
-  chrome.tabs.create({ url: "https://resume-x-yixz.vercel.app/autoapply" });
+  chrome.tabs.create({ url: "https://resumex.talentxrecruiting.com/autoapply" });
 });
 
 function showMsg(text, isErr = false) {
@@ -91,7 +91,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
   else if (url.includes("lever.co")) platformEl.textContent = "Lever";
   else if (url.includes("myworkdayjobs.com")) platformEl.textContent = "Workday";
   else if (url.includes("jobgether.com")) platformEl.textContent = "Jobgether";
-  else if (url.includes("resume-x-yixz.vercel.app")) platformEl.textContent = "ResumeX ✅";
+  else if (url.includes("resumex.talentxrecruiting.com")) platformEl.textContent = "ResumeX ✅";
   else platformEl.textContent = "Unknown";
 });
 
@@ -184,7 +184,7 @@ document.getElementById("pull-btn").addEventListener("click", () => {
       updateProfileStatus(res.profile);
       showMsg("Profile pulled from ResumeX ✅");
     } else {
-      showMsg(res?.error || "Open resume-x-yixz.vercel.app/autoapply first.", true);
+      showMsg(res?.error || "Open resumex.talentxrecruiting.com/autoapply first.", true);
     }
   });
 });
@@ -205,10 +205,10 @@ document.getElementById("push-btn").addEventListener("click", () => {
     if (saveRes?.ok) updateProfileStatus(parsed);
   });
 
-  chrome.tabs.query({ url: "https://resume-x-yixz.vercel.app/*" }, (tabs) => {
+  chrome.tabs.query({ url: "https://resumex.talentxrecruiting.com/*" }, (tabs) => {
     if (chrome.runtime.lastError) { showMsg("Error: " + chrome.runtime.lastError.message, true); return; }
     if (tabs.length === 0) {
-      showMsg("Saved locally. Open resume-x-yixz.vercel.app to also push there.", true);
+      showMsg("Saved locally. Open resumex.talentxrecruiting.com to also push there.", true);
       return;
     }
     chrome.tabs.sendMessage(tabs[0].id, { type: "PUSH_PROFILE_TO_RESUMEX", payload: parsed }, () => {

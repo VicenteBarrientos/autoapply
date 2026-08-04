@@ -29,11 +29,19 @@ const apiLimiter = rateLimit({
 app.use("/api", apiLimiter);
 
 // Require a shared secret so only the paired extension can call the API.
-// Set AUTOAPPLY_SECRET in .env (backend) and BACKEND_SECRET in background.js (extension).
+// Set AUTOAPPLY_SECRET in .env and save the same value in the extension popup.
 // Skip auth when no secret is configured (local dev without .env).
 app.use("/api", (req, res, next) => {
-  const secret = process.env.AUTOAPPLY_SECRET;
-  if (!secret) return next();
+  const secret = process.env.AUTOAPPLY_SECRET?.trim();
+  const production = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
+  if (!secret) {
+    if (production) {
+      return res.status(503).json({
+        error: "AUTOAPPLY_SECRET is not configured on the server.",
+      });
+    }
+    return next();
+  }
   if (req.headers["x-autoapply-key"] !== secret) {
     return res.status(401).json({ error: "Unauthorized" });
   }

@@ -8,16 +8,16 @@ jest.mock("@anthropic-ai/sdk", () => {
         type: "text",
         text: JSON.stringify({
           personal: {
-            firstName: "Vicente",
-            lastName: "Barrientos",
-            email: "vicente@example.com",
+            firstName: "Alex",
+            lastName: "Example",
+            email: "alex@example.com",
             phone: "+1-555-0100",
-            location: "Berlin",
-            linkedinUrl: "https://linkedin.com/in/vicente",
+            location: "Example City",
+            linkedinUrl: "https://linkedin.com/in/alex-example",
             githubUrl: "",
           },
           target: { roles: ["Software Engineer"], salaryMin: 0, salaryMax: 0, currency: "USD", remote: true, willingToRelocate: false, startAvailability: "2 weeks" },
-          experience: { totalYears: 5, currentTitle: "Engineer", currentCompany: "Acme", summary: "Experienced developer." },
+          experience: { totalYears: 5, currentTitle: "Engineer", currentCompany: "Example Co", summary: "Experienced developer." },
           skills: ["JavaScript", "TypeScript"],
           workAuthorization: { country: "", status: "", requiresSponsorship: false },
           coverLetterTemplate: "",
@@ -28,9 +28,20 @@ jest.mock("@anthropic-ai/sdk", () => {
   return jest.fn().mockImplementation(() => ({ messages: { create: mockCreate } }));
 });
 
+const originalAnthropicApiKey = process.env.ANTHROPIC_API_KEY;
+process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
+
 const app = require("../server");
 
-const SAMPLE_RESUME = "Vicente Barrientos\nSoftware Engineer at Acme\nvicente@example.com";
+const SAMPLE_RESUME = "Alex Example\nSoftware Engineer at Example Co\nalex@example.com";
+
+afterAll(() => {
+  if (originalAnthropicApiKey === undefined) {
+    delete process.env.ANTHROPIC_API_KEY;
+  } else {
+    process.env.ANTHROPIC_API_KEY = originalAnthropicApiKey;
+  }
+});
 
 describe("POST /api/profile/parse", () => {
   it("returns parsed profile from resume text", async () => {
@@ -39,7 +50,7 @@ describe("POST /api/profile/parse", () => {
       .send({ resume: SAMPLE_RESUME });
 
     expect(res.status).toBe(200);
-    expect(res.body.profile.personal.firstName).toBe("Vicente");
+    expect(res.body.profile.personal.firstName).toBe("Alex");
     expect(res.body.profile.skills).toContain("JavaScript");
     expect(mockCreate).toHaveBeenCalled();
   });
