@@ -63,7 +63,7 @@ app.use("/api", (req, res, next) => {
 });
 
 app.get("/api/auth/check", (_req, res) =>
-  res.json({
+  res.set("Cache-Control", "no-store").json({
     ok: true,
     authRequired: isAuthRequired(),
   })
