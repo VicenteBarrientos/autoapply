@@ -1,4 +1,4 @@
-require("dotenv").config();
+if (process.env.NODE_ENV !== "test") require("dotenv").config();
 const crypto = require("crypto");
 const express = require("express");
 const cors = require("cors");
@@ -45,16 +45,16 @@ app.use("/api", (req, res, next) => {
   }
 
   const provided = req.headers["x-autoapply-key"];
-  const providedBuffer = typeof provided === "string" ? Buffer.from(provided) : null;
-  const authenticated = providedBuffer
-    ? secrets.some((secret) => {
-        const secretBuffer = Buffer.from(secret);
-        return (
-          providedBuffer.length === secretBuffer.length &&
-          crypto.timingSafeEqual(providedBuffer, secretBuffer)
-        );
-      })
-    : false;
+  const providedDigest = typeof provided === "string"
+    ? crypto.createHash("sha256").update(provided).digest()
+    : null;
+  let authenticated = false;
+  if (providedDigest) {
+    for (const secret of secrets) {
+      const secretDigest = crypto.createHash("sha256").update(secret).digest();
+      authenticated = crypto.timingSafeEqual(providedDigest, secretDigest) || authenticated;
+    }
+  }
 
   if (!authenticated) {
     return res.status(401).json({ error: "Unauthorized" });

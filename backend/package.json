@@ -7,6 +7,11 @@
     "dev": "nodemon server.js",
     "test": "jest --testEnvironment node --forceExit"
   },
+  "jest": {
+    "setupFiles": [
+      "<rootDir>/tests/setup-env.js"
+    ]
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.3",
     "cors": "^2.8.5",

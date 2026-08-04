@@ -9,11 +9,11 @@ jest.mock("@anthropic-ai/sdk", () => {
   return jest.fn().mockImplementation(() => ({ messages: { create: mockCreate } }));
 });
 
+const AUTH_ENV_KEYS = ["AUTOAPPLY_SECRET", "AUTOAPPLY_SECRET_NEXT", "VERCEL"];
 const app = require("../server");
 
-afterEach(() => {
-  delete process.env.AUTOAPPLY_SECRET;
-  delete process.env.AUTOAPPLY_SECRET_NEXT;
+beforeEach(() => {
+  for (const key of AUTH_ENV_KEYS) delete process.env[key];
 });
 
 const VALID_PAYLOAD = {
@@ -66,6 +66,20 @@ describe("GET /api/auth/check", () => {
     expect(res.status).toBe(200);
   });
 
+  it("accepts the next secret when it is the only configured value", async () => {
+    process.env.AUTOAPPLY_SECRET_NEXT = "next-test-secret";
+    const res = await request(app)
+      .get("/api/auth/check")
+      .set("X-Autoapply-Key", "next-test-secret");
+    expect(res.status).toBe(200);
+  });
+
+  it("rejects a missing secret", async () => {
+    process.env.AUTOAPPLY_SECRET = "primary-test-secret";
+    const res = await request(app).get("/api/auth/check");
+    expect(res.status).toBe(401);
+  });
+
   it("rejects an incorrect secret", async () => {
     process.env.AUTOAPPLY_SECRET = "primary-test-secret";
     process.env.AUTOAPPLY_SECRET_NEXT = "next-test-secret";
@@ -73,6 +87,12 @@ describe("GET /api/auth/check", () => {
       .get("/api/auth/check")
       .set("X-Autoapply-Key", "incorrect-test-secret");
     expect(res.status).toBe(401);
+  });
+
+  it("fails closed in production when neither secret is configured", async () => {
+    process.env.VERCEL = "1";
+    const res = await request(app).get("/api/auth/check");
+    expect(res.status).toBe(503);
   });
 });
 
